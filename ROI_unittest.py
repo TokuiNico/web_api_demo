@@ -11,23 +11,35 @@ class ApiTestCase(unittest.TestCase):
         self.app = hdwu.app.test_client()
 
     def test_1_list_ROI_dataset(self):
+    
+        #test get a list of ROI dataset -> OK 200
         response = self.app.get('/datasets/ROI')
-
         self.assertEqual(response.status_code,200)
     
     def test_2_retrieve_a_dataset(self):
+    
+        # test get a ROI dataset -> OK 200
         response = self.app.get('/datasets/ROI/test')
         self.assertEqual(response.status_code,200)
+        
+        # test get not exist ROI dataset -> error 400
         response = self.app.get('/datasets/ROI/error')
-        self.assertEqual(response.status_code,500)
+        self.assertEqual(response.status_code,400)
+        
+        # test get a ROI in ROI dataset -> OK 200
         response = self.app.get('/datasets/ROI/test?rid=2')
         self.assertEqual(response.status_code,200)
+        
+        # test get a ROI with wrong rid -> error 400
         response = self.app.get('/datasets/ROI/test?rid=-5')
         self.assertEqual(response.status_code,400)
         
     def test_3_creat_roi_dataset(self):
+        # test insert new ROI dataset -> OK 201
         response = self.app.post('/datasets/ROI',data='{"name":"new_table"}', headers= {'Content-Type': 'application/json'})
         self.assertEqual(response.status_code,201)
+        
+        # test insert exist ROI dataset -> error 400
         response = self.app.post('/datasets/ROI',data='{"name":"new_table"}', headers= {'Content-Type': 'application/json'})
         self.assertEqual(response.status_code,400)
     
