@@ -8,7 +8,7 @@ import json
 
 class ApiTestCase(unittest.TestCase):
     def setUp(self):
-        self.app = ROI_psycopg2.app.test_client()
+        self.app = ROI.app.test_client()
 
     def test_1_list_ROI_dataset(self):
     
@@ -110,6 +110,26 @@ class ApiTestCase(unittest.TestCase):
         #test delete ROI not exist -> error 400
         response = self.app.delete('/datasets/ROI/new_table')
         self.assertEqual(response.status_code,400)
-       
+    def test_7_tra2seq(self):
+
+        response = self.app.get('/algo/tra2seq/test', data = '{"points": [{"index": 0,"lat": 2.0,"lon": 4.0},{"index": 1,"lat": 4.0,"lon": 4.0}],"tid": 1}',headers= {'Content-Type': 'application/json'})
+        self.assertEqual(json.loads(response.data),{"seq":[4,2]})
+        
+        response = self.app.get('/algo/tra2seq/test?d=3', data = '{"points": [{"index": 0,"lat": 2.0,"lon": 4.0},{"index": 1,"lat": 4.0,"lon": 4.0}],"tid": 1}',headers= {'Content-Type': 'application/json'})
+        self.assertEqual(json.loads(response.data),{"seq":[4]})
+        
+        response = self.app.get('/algo/tra2seq/test', data = '{"points": [{"index": 0,"lat": -2.0,"lon": -4.0},{"index": 1,"lat": -4.0,"lon": -4.0}],"tid": 1}',headers= {'Content-Type': 'application/json'})
+        self.assertEqual(json.loads(response.data),{"seq":[]})
+    
+        response = self.app.get('/algo/tra2seq/test', data = '{"points": [{"index": 0,"lat": -2.0,"lon": "s"},{"index": 1,"lat": -4.0,"lon": -4.0}],"tid": 1}',headers= {'Content-Type': 'application/json'})
+        self.assertEqual(json.loads(response.data),{"seq":[-1]})
+    
+    def test_8_density(self):
+        response = self.app.get('/algo/density/test?rid=1')
+        self.assertEqual(json.loads(response.data),{"density":1})
+        
+        response = self.app.get('/algo/density/test?rid=192')
+        self.assertEqual(json.loads(response.data),{"density":-1})
+    
 if __name__ == '__main__':
     unittest.main()
