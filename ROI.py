@@ -9,7 +9,7 @@ import requests
 import re
 import numpy as np
 
-conn_string = "host='127.0.0.1' dbname='adsl' user='adsl' password='radsl'"
+conn_string = "host='127.0.0.1' dbname='****' user='****' password='****'"
 conn = psycopg2.connect(conn_string)
 	
 app = Flask(__name__)
