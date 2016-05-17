@@ -274,7 +274,106 @@ def retrieve_a_dataset(name):
             tid = row[0]
         else: trajectory[len(trajectory)-1]['points'].append({'index': row[1], 'lon': row[2], 'lat': row[3], 'timestamp': timestamp})
     return jsonify({'trajectory': trajectory})
+
     
+#*. Description: Add a new trajectory to dataset
+#*. uri: /datasets/trajectory/< name>
+#*. http method: POST
+@dataset_page.route('/trajectory/<string:name>', methods=['POST'])
+def addTrajectory(name):
+    if not request.json:
+            abort(400)
+    
+    json_args = request.json
+    traj_points = json_args.get('trajectory')
+
+    query = "SELECT MAX(tid) FROM " + name + ";"
+    #rows = conn.query(query).getresult()
+    cur.execute(query)
+    rows = cur.fetchall()
+    
+    next_tid = int(rows[0][0]) +1
+    tid = str(next_tid)
+    
+    conn.commit
+        
+    for point in traj_points:
+        lon = point.get('lon')
+        lat = point.get('lat')
+        timestamp = point.get('timestamp')
+
+        query= "INSERT INTO " + name +" (tid,lon, lat, timestamp) VALUES ("+ tid +","+ str(lon)+","+ str(lat)+", "+str(timestamp)+");"
+        #print query
+        #conn.query(query)
+        cur.execute(query)
+        conn.commit
+        
+    return "Add trajectory  :" + tid    
+
+
+
+#*. Description: Update an existing trajectory
+#*. uri: /datasets/trajectory/< name>?tid=< tid>
+#*. http method: PUT
+@dataset_page.route('/trajectory/<string:name>', methods=['PUT'])
+def updateTrajectory(name):
+    args = request.args
+    if 'tid' in args:
+        
+        tid = args['tid']
+        query = "DELETE FROM " + name +" WHERE tid=" + tid + ";"
+        #conn.query(query)
+        cur.execute(query)
+        conn.commit
+        
+        if not request.json:
+            abort(400)
+
+        json_args = request.json
+        traj_points = json_args.get('trajectory')
+        
+        for point in traj_points:
+            lon = point.get('lon')
+            lat = point.get('lat')
+            timestamp = point.get('timestamp')
+
+            query= "INSERT INTO " + name +" (tid,lon, lat, timestamp) VALUES ("+str(tid) +","+ str(lon)+","+ str(lat)+", "+str(timestamp)+");"
+            #print query
+            #conn.query(query)
+            cur.execute(query)
+            conn.commit
+        
+        return "Update trajectory  :" + tid
+    
+    else:
+        return "Missing parameter 'tid' "
+
+
+
+#*. Description: Delete a trajectory/ a datasets
+#*. uri: /datasets/trajectory/< name>
+#*. uri: /datasets/trajectory/< name>?tid=<tid>
+#*. httpmethod: DELETE
+@dataset_page.route('/trajectory/<string:name>', methods=['DELETE'])
+def deleteTrajectory(name):
+    args = request.args
+    if 'tid' in request.args:
+        tid = args['tid']
+        query = "DELETE FROM " + name +" WHERE tid=" + tid + ";"
+        #conn.query(query)
+        cur.execute(query)
+        conn.commit
+        return "Delete trajectory  :" + tid
+    else:
+        query = "DROP TABLE " + name + ";"
+        #conn.query(query)
+        cur.execute(query)
+        conn.commit
+        return "Delete dataset : " + name
+ 
+    
+    
+
 def error_request():
     return jsonify({'name':'error','ROI':[{'rid':-1,'density':-1,'score':-1,'range':{'west':'0','east':'0','south':'0','north':'0'}}]})
 

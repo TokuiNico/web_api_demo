@@ -247,26 +247,12 @@ def update_TRD(name):
     #   d = density
     
     TRD_name = name + "_trd"    
-    
+    cur = conn.cursor()
     '''
     r = requests.get('http://127.0.0.1:5566/datasets/ROI')
     if TRD_name in r.json()['datasets']:
         return error_request()
     '''
-    
-    print "get ROI"
-    density = request.args.get('d',50000)
-    payload = {'d':density}
-    r = requests.get('http://127.0.0.1:5566/datasets/ROI/'+name, params = payload)
-    ROIs = r.json()['ROI']
-    
-    print "build index"
-    idx = index.Index()
-    for roi in ROIs:
-        left, bottom, right, top = (roi['range']['west'],roi['range']['south'],roi['range']['east'],roi['range']['north'])
-        idx.insert(int(roi['rid']), (float(left), float(bottom), float(right), float(top)))
-    
-    cur = conn.cursor()
     
     print "create table: " + TRD_name
     query = "CREATE TABLE roi."+ TRD_name + " (tid bigint, index bigint, rid bigint); CREATE INDEX ON roi."+ TRD_name + " (tid); create index on roi." + TRD_name + " using hash (rid);"
@@ -278,51 +264,58 @@ def update_TRD(name):
         cur.close()
         return jsonify({"ERROR": query})
     
-    
-    print "get trajectory: " + name
-    query = "select tid,index,lon,lat from trajectory." + name + " ORDER BY tid,index;"
-    
+    print "get trajectory id: " + name
+
+    query = "select distinct(tid) from trajectory." + name + " ;"
     try:
         cur.execute(query)
     except psycopg2cffi.Error as e:
         print query
         conn.rollback()
         cur.close()
-        return jsonify({"ERROR": query})
+        return error_trajectory()
 
+    rows = [r for r in cur]
 
-    tid = -1
-    
-    previous_rid = -1
-    id = 0
     cur2 = conn.cursor()
-    print "insert TRD into: " + TRD_name
-    for points in cur:
-        #print points[0]
-        if tid != points[0]: #complete trajectory
-            tid = points[0]
-            id = 0
-
-        rid_list = list(idx.intersection((float(points[2]), float(points[3]))))
-        if len(rid_list) == 0:continue
-        rid = rid_list[0]
+    for tids in rows:
+        tid = tids[0]
+        logging.info("tid: "+str(tid))
+        density = request.args.get('d',50000)
         
-        if rid != previous_rid:
-            query2 = "INSERT INTO roi."+ TRD_name + " VALUES ( " + str(tid) + ", " + str(id) + ", " + str(rid) + " )"
-
-            print query2
+        query = "select index, rid from trajectory." + name + " as tra left join roi." + name + " as roi on point(tra.lon,tra.lat) @ roi.range where tid=" + str(tid) + " and density >= " + str(density) + " order by index;"
+        
+        try:
+            cur.execute(query)
+        except psycopg2cffi.Error as e:
+            logging.error("error sql: "+query)
+            conn.rollback()
+            cur.close()
+            return error_request()
+            
+        seq = []
+        for point in cur:
+            index, rid = point
+            if len(seq) == 0:
+                seq.append(rid)
+            elif seq[-1] != rid:
+                seq.append(rid)
+        logging.info(seq)
+        
+        for index,rid in enumerate(seq):
+            query2 = "INSERT INTO roi."+ TRD_name + " VALUES ( " + str(tid) + ", " + str(index) + ", " + str(rid) + " )"
+        
             try:
                 cur2.execute(query2)
             except psycopg2cffi.Error as e:
                 conn.rollback()
                 cur2.close()
                 return jsonify({"ERROR": query2})
-            id += 1
-            previous_rid = rid
-            
+                
     conn.commit()
     cur2.close()
     cur.close()
+
     return ("",200)
 
 @pats_page.route('/AS/<name>', methods=['GET','PUT'])
@@ -596,7 +589,7 @@ def test3(name):
     
     ROI_list = [str(roi[0]) for roi in ROI_rank]
     
-    '''
+    ''' ## get TRD from pgSQL
     
     cur = conn.cursor()
     TRD_name = name + "_trd" 
@@ -635,23 +628,23 @@ def test3(name):
     import redis
 
     r = redis.StrictRedis(host='localhost', port=6379, db=0)
-    pipeline=r.pipeline()
+    # pipeline=r.pipeline()
 
 
     for rid in ROI_list:
         # tid_set = r.smembers("rid:"+str(rid))
         # ROI_DB[int(rid)] = list(tid_set)
-        tid_set = r.lrange("rid:"+str(rid),0,-1)
+        tid_set = r.lrange("rid:"+str(rid),0,-1) # get tid list in ROI
         ROI_DB[int(rid)] = tid_set
         
         for tid in tid_set:
             if int(tid) in TRD:
-                TRD[int(tid)].append(int(rid))
+                TRD[int(tid)].append(int(rid))  # append ROI to tid
             else:
                 TRD[int(tid)] = [int(rid)]
         
 
-    tid_sets = pipeline.execute()
+    # tid_sets = pipeline.execute()
 
     
     # '''
