@@ -202,7 +202,7 @@ def BT(name):
     
     score_list = []
     
-    #­pºâROI¤À¼Æ
+    #è¨ˆç®—ROIåˆ†æ•¸
     for rid in seq:
         payload = {'rid':rid}
         r = requests.get('http://127.0.0.1:5566/datasets/ROI/'+name,params = payload)
@@ -409,9 +409,7 @@ def AS(name):
         
         for point in cur:
             # logging.info(point)
-            
             tid, index, rid = point
-            
             region_set.add(rid)
             
             if len(seq) == 0:
@@ -420,40 +418,8 @@ def AS(name):
                 seq.append(rid)
         
         logging.info(seq)
-
-        
         if len(seq) > 0:
             TRD.append(seq)
-        
-        '''
-        r = requests.get('http://127.0.0.1:5566/datasets/trajectory/'+name+'?tid='+str(tid))
-        
-
-        if len(r.json()['trajectory']) > 0:
-            
-            trajectory = r.json()['trajectory'][0]
-            
-            payload = trajectory
-            
-            payload_params = {}
-            if 'd' in request.args:
-                # density = request.args.get('d',50000)
-                payload_params['d'] = request.args.get('d',50000)
-            r = requests.get('http://127.0.0.1:5566/algo/tra2seq/'+name,json = payload, params = payload_params)
-            
-            try:
-                seq = r.json()['seq']
-            except ValueError:
-                return r.text
-                
-            if len(seq) > 0:
-                for rid in seq:
-                    region_set.add(rid)
-                TRD.append(seq)
-    
-        '''
-    
-    # r = requests.post('http://127.0.0.1:5566/algo/TRD/'+name)
     
     if len(TRD) == 0:
         return jsonify({'score':-1})
@@ -488,10 +454,7 @@ def AS(name):
     # get score of each serial id
     
     # return jsonify({'test':0})
-    
     score_list = r.json()['score']
-    
-
     
     # convert serial id to original rid
     score_dict = dict()
@@ -527,16 +490,10 @@ def test3(name):
     north = request.args.get('north', '41.260813')
     south = request.args.get('south', '41.208771')
     r = str(east)+','+str(north)+','+str(west)+','+str(south)
-    
-    
-    
+
     type = request.args.get('type','b')
     k = int(request.args.get('k',5))
-    
-    
     density = request.args.get('d',50000)
-    
-    
     tStart = time.time()
     # get roi in range
     payload = {'r': r, 'd':density}
@@ -544,14 +501,13 @@ def test3(name):
     ROIs = r.json()['ROI']
     
     tStop = time.time()
-    
     t_roi = tStop - tStart
  
     # build ROI database: ROI_DB
     # build ROI rank list :ROI_rank
     '''
-        ROI_DB: ¬ö¿ý invert list¡A rid -> tid1 tid2 tid3... 
-        ROI_rank: ¬ö¿ý ROI score¡A¨Ã¨Ì¤À¼Æ±Æ¦C (rid, score)
+        ROI_DB: ç´€éŒ„ invert listï¼Œ rid -> tid1 tid2 tid3... 
+        ROI_rank: ç´€éŒ„ ROI scoreï¼Œä¸¦ä¾åˆ†æ•¸æŽ’åˆ— (rid, score)
     '''
     tStart = time.time()
 
@@ -562,7 +518,7 @@ def test3(name):
         ROI_DB[roi['rid']]=[]
         ROI_rank.append((roi['rid'],roi['score']))
 
-    ROI_rank.sort(key = lambda tup: tup[1],reverse=True) #¨Ì·Óscore±Æ§Ç
+    ROI_rank.sort(key = lambda tup: tup[1],reverse=True) #ä¾ç…§scoreæŽ’åº
     
     if len(ROI_rank) ==0: return jsonify({
         "candidate_tid": [],
@@ -589,42 +545,6 @@ def test3(name):
     
     ROI_list = [str(roi[0]) for roi in ROI_rank]
     
-    ''' ## get TRD from pgSQL
-    
-    cur = conn.cursor()
-    TRD_name = name + "_trd" 
-    query = "SELECT * from roi." + TRD_name + " where rid in (" + ', '.join(ROI_list) + ") ORDER BY tid, index;"
-    
-    try:
-        cur.execute(query)
-    except psycopg2cffi.Error as e:
-        print query
-        conn.rollback()
-        cur.close()
-        return jsonify({"ERROR": query})
-    
-    seq = []
-    previous_tid = -1
-    for points in cur:
-        tid, index, rid = points
-
-        if tid != previous_tid: #complete trajectory
-            if len(seq)>0:
-                TRD[int(tid)] = seq
-                for rid in set(seq):
-                    ROI_DB[int(rid)].append(int(tid))
-            seq = []
-            previous_tid = tid
-
-        # if len(seq) == 0:
-            # seq.append(int(rid))
-        # elif seq[-1] != rid:
-            # seq.append(int(rid))
-            
-        seq.append(int(rid))
-    
-    
-    '''
     import redis
 
     r = redis.StrictRedis(host='localhost', port=6379, db=0)
@@ -643,7 +563,6 @@ def test3(name):
             else:
                 TRD[int(tid)] = [int(rid)]
         
-
     # tid_sets = pipeline.execute()
 
     
@@ -671,12 +590,10 @@ def test3(name):
             logging.info("EARLY STOP")
             break
         
-        #tid_list = ROI_DB[ROI[0]]
         logging.info('begin getting tid_list')
         
         candidate_id_set = set(map(lambda can: can[0], candidate))
         
-        # tid_list = set(ROI_DB[ROI[0]]) - candidate_id_set
         tid_list = set(ROI_DB[ROI[0]]) - complete_tid #skip calculated tra
         
         complete_tid = complete_tid | set(ROI_DB[ROI[0]]) # add tids in ROI_DB
@@ -733,7 +650,6 @@ def test3(name):
             
             candidate_set.append(trajectory)
         
-    #return jsonify({"candidate": candidate})
     return jsonify({
             "candidate_tid": [ candidate_set[i] for i in range(len(candidate_set)) if i < k],
             "range":{
